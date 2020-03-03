@@ -34,11 +34,17 @@ class ReactivePlannerController(PlannerControllerBase):
         # This methods needs to check if the current path, whose
         # waypoints are in self.currentPlannedPath, can still be
         # traversed
-                
+
+        waypoints = self.currentPlannedPath.waypoints
+        for point in waypoints:
+            x,y = point.coords
+            status = self.occupancyGrid.getCell(x,y)
+            if status == 1:
+                print("Path no longer valid - cell blocked at " + x + "," +y)
+                self.controller.stopDrivingToCurrentGoal()
+                break
         # If the route is not viable any more, call
         # self.controller.stopDrivingToCurrentGoal()
-
-        pass
     
     def driveToGoal(self, goal):
 
@@ -47,7 +53,6 @@ class ReactivePlannerController(PlannerControllerBase):
 
         # Reactive planner main loop - keep iterating until the goal is reached or the robot gets
         # stuck.
-
         goalReached = False
         
         while (goalReached is False) & (rospy.is_shutdown() is False):
@@ -81,7 +86,7 @@ class ReactivePlannerController(PlannerControllerBase):
                                                           goal.theta, self.planner.getPlannerDrawer())
 
             rospy.logerr('goalReached=%d', goalReached)
-
+        
         return goalReached
             
             

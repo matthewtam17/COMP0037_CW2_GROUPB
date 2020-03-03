@@ -167,7 +167,7 @@ class ExplorerNodeBase(object):
             threading.Thread.__init__(self)
             self.explorer = explorer
             self.running = False
-            self.completed = False;
+            self.completed = False
 
 
         def isRunning(self):
@@ -186,6 +186,7 @@ class ExplorerNodeBase(object):
                 # has started, stdr needs a kicking to generate laser
                 # messages. To do this, we get the robot to
                 
+                start_time = rospy.get_time()
 
                 # Create a new robot waypoint if required
                 newDestinationAvailable, newDestination = self.explorer.chooseNewDestination()
@@ -198,6 +199,9 @@ class ExplorerNodeBase(object):
                     self.explorer.destinationReached(newDestination, attempt)
                 else:
                     self.completed = True
+                    #REMEMBER TO ALWAYS CHECKS WHETHER THIS TIME ALWAYS PRINTS THE CORRECT TOTAL ELPASED TIME TO EXPLORE THE MAP
+                    print("Robot completed exploring the map, taken: " + (rospy.get_time()-start_time))
+
                     
        
     def run(self):

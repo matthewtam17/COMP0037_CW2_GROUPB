@@ -25,7 +25,8 @@ class ExplorerNode(ExplorerNodeBase):
         candidateGood = False
         destination = None
         smallestD2 = float('inf')
-
+        # This is inefficient - when improving, see if we can get a different loop
+        #so that it doesn't check the entire map
         for x in range(0, self.occupancyGrid.getWidthInCells()):
             for y in range(0, self.occupancyGrid.getHeightInCells()):
                 candidate = (x, y)
