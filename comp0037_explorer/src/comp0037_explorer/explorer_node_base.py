@@ -201,6 +201,22 @@ class ExplorerNodeBase(object):
                     self.completed = True
                     #REMEMBER TO ALWAYS CHECKS WHETHER THIS TIME ALWAYS PRINTS THE CORRECT TOTAL ELPASED TIME TO EXPLORE THE MAP
                     print("Robot completed exploring the map, taken: " + (rospy.get_time()-start_time))
+                    #Now calculate the coverage. We do this by looking at the status of the cells
+                    #in the grid_drawer.py, OccupancyGridDrawer
+                    print("Coverage: " + str(getCoverage) + "%")
+
+    def getCoverage(self):
+        cellExtent = self.OccupancyGrid.getExtentInCells()      
+        totalCells = cellExtent[0]*cellExtent[1]
+        explored = 0
+        for i in range(cellExtent[0]):
+            if rospy.is_shutdown():
+                return
+            for j in range(cellExtent[1]):
+                #Rounding issues define a range
+                if self.occupancyGrid.getCell(i, j) != 0.5:
+                    explored = explored + 1
+        return (explored/totalCells)*100
 
                     
        

@@ -18,9 +18,9 @@ class ExplorerNode(ExplorerNodeBase):
     def chooseNewDestination(self):
 
 
-#         print 'blackList:'
-#         for coords in self.blackList:
-#             print str(coords)
+        print 'blackList:'
+        for coords in self.blackList:
+            print str(coords)
 
         candidateGood = False
         destination = None

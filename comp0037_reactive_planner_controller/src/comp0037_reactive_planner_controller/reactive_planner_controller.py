@@ -40,7 +40,7 @@ class ReactivePlannerController(PlannerControllerBase):
             x,y = point.coords
             status = self.occupancyGrid.getCell(x,y)
             if status == 1:
-                print("Path no longer valid - cell blocked at " + x + "," +y)
+                print("Path no longer valid - cell blocked at " + str(x) + "," +str(y))
                 self.controller.stopDrivingToCurrentGoal()
                 break
         # If the route is not viable any more, call
