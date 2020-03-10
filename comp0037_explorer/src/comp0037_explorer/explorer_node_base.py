@@ -8,6 +8,7 @@ from comp0037_reactive_planner_controller.srv import *
 from comp0037_reactive_planner_controller.occupancy_grid import OccupancyGrid
 from comp0037_reactive_planner_controller.grid_drawer import OccupancyGridDrawer
 from geometry_msgs.msg  import Twist
+from nav_msgs.msg import Odometry
 
 class ExplorerNodeBase(object):
 
@@ -23,10 +24,16 @@ class ExplorerNodeBase(object):
         self.waitForGoal =  threading.Condition()
         self.waitForDriveCompleted =  threading.Condition()
         self.goal = None
+        self.mostRecentOdometry = Odometry()
+        self.pose = self.mostRecentOdometry.pose.pose
 
         # Subscribe to get the map update messages
         self.mapUpdateSubscriber = rospy.Subscriber('updated_map', MapUpdate, self.mapUpdateCallback)
         self.noMapReceived = True
+
+        #Subscribe to get the robot's current position
+        self.odometrySubscriber = rospy.Subscriber("robot0/odom", Odometry, self.odometryCallback, queue_size=1)
+
 
         # Clear the map variables
         self.occupancyGrid = None
@@ -52,6 +59,13 @@ class ExplorerNodeBase(object):
             mapUpdate = mapRequestService(True)
             
         self.mapUpdateCallback(mapUpdate.initialMapUpdate)
+    
+    def odometryCallback(self, msg):
+        self.dataCopyLock.acquire()
+        self.mostRecentOdometry = msg
+        self.pose = msg.pose.pose
+        self.noOdometryReceived = False
+        self.dataCopyLock.release()
         
     def mapUpdateCallback(self, msg):
         rospy.loginfo("map update received")
@@ -200,13 +214,13 @@ class ExplorerNodeBase(object):
                 else:
                     self.completed = True
                     #REMEMBER TO ALWAYS CHECKS WHETHER THIS TIME ALWAYS PRINTS THE CORRECT TOTAL ELPASED TIME TO EXPLORE THE MAP
-                    print("Robot completed exploring the map, taken: " + (rospy.get_time()-start_time))
+                    print("Robot completed exploring the map, taken: " + str((rospy.get_time()-start_time)))
                     #Now calculate the coverage. We do this by looking at the status of the cells
                     #in the grid_drawer.py, OccupancyGridDrawer
-                    print("Coverage: " + str(getCoverage) + "%")
+                    print("Coverage: " + str(self.getCoverage()) + "%")
 
     def getCoverage(self):
-        cellExtent = self.OccupancyGrid.getExtentInCells()      
+        cellExtent = self.explorer.occupancyGrid.getExtentInCells()      
         totalCells = cellExtent[0]*cellExtent[1]
         explored = 0
         for i in range(cellExtent[0]):
@@ -216,7 +230,7 @@ class ExplorerNodeBase(object):
                 #Rounding issues define a range
                 if self.occupancyGrid.getCell(i, j) != 0.5:
                     explored = explored + 1
-        return (explored/totalCells)*100
+        return 1.0 * (explored/totalCells) * 100
 
                     
        

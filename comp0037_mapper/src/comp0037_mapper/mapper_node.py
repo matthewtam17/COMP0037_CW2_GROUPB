@@ -334,12 +334,29 @@ class MapperNode(object):
             mapUpdateMessage.deltaOccupancyGrid = self.deltaOccupancyGrid.getGridAsVector()
 
         return mapUpdateMessage
+    
+    def calculateEntropy(self):
+        unknown = 0
+        for x in range(0, self.occupancyGrid.getWidthInCells()):
+            for y in range(0, self.occupancyGrid.getHeightInCells()):
+                status = self.occupancyGrid.getCell(x,y)
+                #We use a range for checking whether a cell is unexplored to catch rounding issues
+                if not (status < 0.1 or status > 0.9):
+                    unknown = unknown + 1
+        return unknown*np.log(2)
 
         
     def run(self):
+        i = 0
         while not rospy.is_shutdown():
             self.updateVisualisation()
             rospy.sleep(0.1)
+            if i == 49:
+                print("Entropy: " + str(self.calculateEntropy()))
+                i = 0
+            else:
+                i = i + 1
+            
         
   
 
