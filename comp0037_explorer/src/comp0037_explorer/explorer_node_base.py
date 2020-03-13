@@ -9,12 +9,17 @@ from comp0037_reactive_planner_controller.occupancy_grid import OccupancyGrid
 from comp0037_reactive_planner_controller.grid_drawer import OccupancyGridDrawer
 from geometry_msgs.msg  import Twist
 from nav_msgs.msg import Odometry
+from threading import Lock
+from comp0037_reactive_planner_controller.fifo_planner import FIFOPlanner
 
 class ExplorerNodeBase(object):
 
     def __init__(self):
         rospy.init_node('explorer')
-
+        # Variables we'ev added to enable use of wavefront frontier detection
+        self.useWavefront = 1
+        self.blackList = []
+        self.frontiers = []
         # Get the drive robot service
         rospy.loginfo('Waiting for service drive_to_goal')
         rospy.wait_for_service('drive_to_goal')
@@ -34,11 +39,15 @@ class ExplorerNodeBase(object):
         #Subscribe to get the robot's current position
         self.odometrySubscriber = rospy.Subscriber("robot0/odom", Odometry, self.odometryCallback, queue_size=1)
 
+        # Set up the lock to ensure thread safety
+        self.dataCopyLock = Lock()
+
+        self.noOdometryReceived = True
 
         # Clear the map variables
         self.occupancyGrid = None
         self.deltaOccupancyGrid = None
-
+        
         # Flags used to control the graphical output. Note that we
         # can't create the drawers until we receive the first map
         # message.
@@ -61,11 +70,8 @@ class ExplorerNodeBase(object):
         self.mapUpdateCallback(mapUpdate.initialMapUpdate)
     
     def odometryCallback(self, msg):
-        self.dataCopyLock.acquire()
         self.mostRecentOdometry = msg
-        self.pose = msg.pose.pose
         self.noOdometryReceived = False
-        self.dataCopyLock.release()
         
     def mapUpdateCallback(self, msg):
         rospy.loginfo("map update received")
@@ -73,6 +79,7 @@ class ExplorerNodeBase(object):
         # If the occupancy grids do not exist, create them
         if self.occupancyGrid is None:
             self.occupancyGrid = OccupancyGrid.fromMapUpdateMessage(msg)
+            self.planner = FIFOPlanner("FIFOPlanner",self.occupancyGrid)
             self.deltaOccupancyGrid = OccupancyGrid.fromMapUpdateMessage(msg)
 
         # Update the grids
@@ -219,18 +226,21 @@ class ExplorerNodeBase(object):
                     #in the grid_drawer.py, OccupancyGridDrawer
                     print("Coverage: " + str(self.getCoverage()) + "%")
 
-    def getCoverage(self):
-        cellExtent = self.explorer.occupancyGrid.getExtentInCells()      
-        totalCells = cellExtent[0]*cellExtent[1]
-        explored = 0
-        for i in range(cellExtent[0]):
-            if rospy.is_shutdown():
-                return
-            for j in range(cellExtent[1]):
-                #Rounding issues define a range
-                if self.occupancyGrid.getCell(i, j) != 0.5:
-                    explored = explored + 1
-        return 1.0 * (explored/totalCells) * 100
+        def getCoverage(self):
+            try:
+                cellExtent = self.explorer.occupancyGrid.getExtentInCells()      
+                totalCells = cellExtent[0]*cellExtent[1]
+                explored = 0
+                for i in range(cellExtent[0]):
+                    if rospy.is_shutdown():
+                        return
+                    for j in range(cellExtent[1]):
+                        #Rounding issues define a range
+                        if self.occupancyGrid.getCell(i, j) != 0.5:
+                            explored = explored + 1
+                return 1.0 * (explored/totalCells) * 100
+            except:
+                return None
 
                     
        

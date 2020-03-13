@@ -25,7 +25,7 @@ class PlannerBase(object):
         rospy.loginfo("Occupancy grid dimensions = %dx%d", occupancyGrid.getWidthInCells(), occupancyGrid.getHeightInCells())
 
         self.setupOccupancyGrid()
-        
+        self.goal = None
         # Graphics and debug output support
         self.showGraphics = True
         self.pauseTimeInSeconds = 0
@@ -82,7 +82,7 @@ class PlannerBase(object):
             return
         
         # If we don't have the drawers set up yet, create them
-        if (self.searchGridDrawer is None):
+        if (self.searchGridDrawer or self.occupancyGridDrawer is None):
             self.createPlannerDrawer()
             self.searchGridDrawer.setRunInteractively(self.runInteractively)
             self.searchGridDrawer.open()
