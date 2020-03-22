@@ -64,7 +64,7 @@ class SearchGrid(object):
         newGrid = [[Cell((x, y), self.occupancyGrid.getCell(x,y)) for y in range(heightInCells)] \
                    for x in range(widthInCells)]
 
-        print 'newGrid size = ' + str(widthInCells) + 'x' + str(heightInCells)
+        #print 'newGrid size = ' + str(widthInCells) + 'x' + str(heightInCells)
         
         # Iterate through all the cells in the first grid. If they are
         # marked as OBSTRUCTED, set all cells within radius

@@ -82,7 +82,7 @@ class PlannerBase(object):
             return
         
         # If we don't have the drawers set up yet, create them
-        if (self.searchGridDrawer or self.occupancyGridDrawer is None):
+        if (self.searchGridDrawer is None):
             self.createPlannerDrawer()
             self.searchGridDrawer.setRunInteractively(self.runInteractively)
             self.searchGridDrawer.open()

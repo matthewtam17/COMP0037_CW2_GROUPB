@@ -17,7 +17,7 @@ class AStarPlanner(CellBasedForwardSearch):
         self.astarQueue = Queue.PriorityQueue()
 
         #Determine the weighting of the scaled A* algorithm
-        self.w = 2
+        self.w = 1
         
         #Value that determines what heuristic to use!
         #We use this method to set the heuristic as its more simple to implement than 

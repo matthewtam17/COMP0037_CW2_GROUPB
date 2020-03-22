@@ -5,6 +5,7 @@ import rospy
 import math
 import tf
 import copy
+import os
 
 import numpy as np
 from nav_msgs.srv import GetMap
@@ -16,6 +17,7 @@ from nav_msgs.msg import Odometry
 from threading import Lock
 from geometry_msgs.msg  import Twist
 from comp0037_mapper.msg import MapUpdate
+#from comp0037_mapper.msg import coverageUpdate
 from comp0037_mapper.srv import *
 from bresenhamalgorithm import bresenham
 
@@ -106,11 +108,11 @@ class MapperNode(object):
 
     def mappingStateService(self, changeMapperState):
         self.enableMapping = changeMapperState.enableMapping
-        rospy.loginfo('Changing the enableMapping state to %d', self.enableMapping)
+        #rospy.loginfo('Changing the enableMapping state to %d', self.enableMapping)
         return ChangeMapperStateResponse()
 
     def requestMapUpdateService(self, request):
-        rospy.loginfo('requestMapUpdateService with deltaOccupancyGridRequired %d', request.deltaOccupancyGridRequired)
+        #rospy.loginfo('requestMapUpdateService with deltaOccupancyGridRequired %d', request.deltaOccupancyGridRequired)
         mapUpdateMessage = self.constructMapUpdateMessage(request.deltaOccupancyGridRequired)
         return RequestMapUpdateResponse(mapUpdateMessage)
 
@@ -141,7 +143,7 @@ class MapperNode(object):
 
         # Construct the map update message and send it out
         mapUpdateMessage = self.constructMapUpdateMessage(True)
-	rospy.loginfo('publishing map update message')
+	#rospy.loginfo('publishing map update message')
         self.mapUpdatePublisher.publish(mapUpdateMessage)
         
     # Predict the pose of the robot to the current time. This is to
@@ -321,7 +323,7 @@ class MapperNode(object):
         # Construct the map update message
         mapUpdateMessage = MapUpdate()
 
-	rospy.loginfo('constructMapUpdateMessage: invoked')
+	#rospy.loginfo('constructMapUpdateMessage: invoked')
 
         mapUpdateMessage.header.stamp = rospy.Time().now()
         mapUpdateMessage.isPriorMap = self.noLaserScanReceived
@@ -348,11 +350,23 @@ class MapperNode(object):
         
     def run(self):
         i = 0
+        start_time = rospy.get_time()
+        working_directory = os.getcwd()
+        file_directory = '/home/ros_user/output_file.txt'
+        print(file_directory)
+        file = open(file_directory,'w')
+        file.close()
         while not rospy.is_shutdown():
             self.updateVisualisation()
             rospy.sleep(0.1)
             if i == 49:
-                print("Entropy: " + str(self.calculateEntropy()))
+                entropy = self.calculateEntropy()
+                elapsedTime = rospy.get_time() - start_time
+                print("Entropy: " + str(entropy))
+                print("Total Elapsed Time So Far: " + str(elapsedTime))
+                file = open(file_directory,'a')
+                file.write(str(elapsedTime)+ ' ' + str(entropy)+'\n')
+                file.close()
                 i = 0
             else:
                 i = i + 1

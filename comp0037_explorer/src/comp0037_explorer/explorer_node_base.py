@@ -1,6 +1,7 @@
 import rospy
 import threading
 import math
+import copy
 
 from comp0037_mapper.msg import *
 from comp0037_mapper.srv import *
@@ -30,8 +31,8 @@ class ExplorerNodeBase(object):
         self.waitForDriveCompleted =  threading.Condition()
         self.goal = None
         self.mostRecentOdometry = Odometry()
-        self.pose = self.mostRecentOdometry.pose.pose
-
+        self.pose = copy.deepcopy(self.mostRecentOdometry.pose.pose)
+        self.currentCoords = (0,0)
         # Subscribe to get the map update messages
         self.mapUpdateSubscriber = rospy.Subscriber('updated_map', MapUpdate, self.mapUpdateCallback)
         self.noMapReceived = True
@@ -70,11 +71,14 @@ class ExplorerNodeBase(object):
         self.mapUpdateCallback(mapUpdate.initialMapUpdate)
     
     def odometryCallback(self, msg):
-        self.mostRecentOdometry = msg
+        self.dataCopyLock.acquire()
+        self.pose = copy.deepcopy(msg.pose.pose)
+        if self.occupancyGrid:
+            self.currentCoords = self.occupancyGrid.getCellCoordinatesFromWorldCoordinates([self.pose.position.x,self.pose.position.y])
         self.noOdometryReceived = False
+        self.dataCopyLock.release()
         
     def mapUpdateCallback(self, msg):
-        rospy.loginfo("map update received")
         
         # If the occupancy grids do not exist, create them
         if self.occupancyGrid is None:
@@ -87,7 +91,7 @@ class ExplorerNodeBase(object):
         self.deltaOccupancyGrid.updateGridFromVector(msg.deltaOccupancyGrid)
         
         # Update the frontiers
-        self.updateFrontiers()
+        #self.updateFrontiers()
 
         # Flag there's something to show graphically
         self.visualisationUpdateRequired = True
@@ -99,6 +103,10 @@ class ExplorerNodeBase(object):
 
         # Check the cell to see if it's open
         if self.occupancyGrid.getCell(x, y) != 0:
+            return False
+        if (x,y) in self.blackList:
+            return False
+        if (x,y) == self.currentCoords:
             return False
 
         # Check the neighbouring cells; if at least one of them is unknown, it's a frontier
@@ -200,15 +208,17 @@ class ExplorerNodeBase(object):
         def run(self):
 
             self.running = True
+            start_time = rospy.get_time()
 
             while (rospy.is_shutdown() is False) & (self.completed is False):
 
                 # Special case. If this is the first time everything
                 # has started, stdr needs a kicking to generate laser
                 # messages. To do this, we get the robot to
+                if not self.explorer.occupancyGrid:
+                    continue
                 
-                start_time = rospy.get_time()
-
+                result = self.explorer.updateFrontiers()
                 # Create a new robot waypoint if required
                 newDestinationAvailable, newDestination = self.explorer.chooseNewDestination()
 
@@ -218,29 +228,32 @@ class ExplorerNodeBase(object):
                     newDestinationInWorldCoordinates = self.explorer.occupancyGrid.getWorldCoordinatesFromCellCoordinates(newDestination)
                     attempt = self.explorer.sendGoalToRobot(newDestinationInWorldCoordinates)
                     self.explorer.destinationReached(newDestination, attempt)
+                    print("Coverage: " + str(self.getCoverage()) + "%")
+                    print("Elapsed Simulated Time So Far: " + str((rospy.get_time()-start_time)))
                 else:
-                    self.completed = True
                     #REMEMBER TO ALWAYS CHECKS WHETHER THIS TIME ALWAYS PRINTS THE CORRECT TOTAL ELPASED TIME TO EXPLORE THE MAP
                     print("Robot completed exploring the map, taken: " + str((rospy.get_time()-start_time)))
                     #Now calculate the coverage. We do this by looking at the status of the cells
                     #in the grid_drawer.py, OccupancyGridDrawer
                     print("Coverage: " + str(self.getCoverage()) + "%")
+                    self.completed = True
+                    
 
         def getCoverage(self):
-            try:
-                cellExtent = self.explorer.occupancyGrid.getExtentInCells()      
-                totalCells = cellExtent[0]*cellExtent[1]
-                explored = 0
-                for i in range(cellExtent[0]):
-                    if rospy.is_shutdown():
-                        return
-                    for j in range(cellExtent[1]):
-                        #Rounding issues define a range
-                        if self.occupancyGrid.getCell(i, j) != 0.5:
-                            explored = explored + 1
-                return 1.0 * (explored/totalCells) * 100
-            except:
-                return None
+            cellExtent = self.explorer.occupancyGrid.getExtentInCells()      
+            totalCells = cellExtent[0]*cellExtent[1]
+            explored = 0
+            for i in range(cellExtent[0]):
+                if rospy.is_shutdown():
+                    return
+                for j in range(cellExtent[1]):
+                    #Rounding issues define a range
+                    status = self.explorer.occupancyGrid.getCell(i, j)
+                    if status>0.55 or status < 0.45:
+                        explored = explored + 1
+            print(explored)
+            print(totalCells)
+            return (float(explored)/float(totalCells)) * 100
 
                     
        

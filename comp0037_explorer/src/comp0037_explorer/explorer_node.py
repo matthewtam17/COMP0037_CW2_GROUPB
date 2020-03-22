@@ -2,6 +2,7 @@ import rospy
 
 from explorer_node_base import ExplorerNodeBase
 from comp0037_reactive_planner_controller.cell import *
+from math import sqrt
 # This class implements a super dumb explorer. It goes through the
 # current map and marks the first cell it sees as the one to go for
 
@@ -12,15 +13,25 @@ class ExplorerNode(ExplorerNodeBase):
         
 
     def updateFrontiers(self):
+        searching = True
+        startCoords = self.currentCoords
+        while searching:
             if self.useWavefront:
-                result = self.outerBFS(self.occupancyGrid.getCellCoordinatesFromWorldCoordinates([self.pose.position.x,self.pose.position.y]))
+                result = self.outerBFS(startCoords)
                 if result:
                     self.frontiers = self.innerBFS(result.coords)
-                    return True
+                    if len(self.frontiers) > 5:
+                        searching = False
+                        return True
+                    else:
+                        startCoords = (0,0)
+                        continue
                 else:
+                    searching = False
                     return False
 
     def outerBFS(self,startCoords):
+        print("startcoords: " + str(startCoords))
         self.planner.handleChangeToOccupancyGrid()
         
         # Make sure the queue is empty. We do this so that we can keep calling
@@ -32,7 +43,6 @@ class ExplorerNode(ExplorerNodeBase):
         # "don't know" which is why it is used as the threshold for detection.
         if (self.occupancyGrid.getCell(startCoords[0], startCoords[1]) > 0.5):
             return False
-
         # Get the start cell object and label it as such. Also set its
         # path cost to 0.
         self.planner.start = self.planner.searchGrid.getCellFromCoords(startCoords)
@@ -64,7 +74,8 @@ class ExplorerNode(ExplorerNodeBase):
                 return False
             
             cell = self.planner.popCellFromQueue()
-            if self.isFrontierCell(cell.coords[0],cell.coords[1]):
+            if self.isFrontierCell(cell.coords[0],cell.coords[1]) is True:
+                print("is frontier cell")
                 return cell
             cells = self.planner.getNextSetOfCellsToBeVisited(cell)
             for nextCell in cells:
@@ -90,7 +101,7 @@ class ExplorerNode(ExplorerNodeBase):
         return False
 
     def innerBFS(self,startCoords):
-        #FIFOPlanner.handleChangeToOccupancyGrid()
+        self.planner.handleChangeToOccupancyGrid()
         
         # Make sure the queue is empty. We do this so that we can keep calling
         # the same method multiple times and have it work.
@@ -138,7 +149,7 @@ class ExplorerNode(ExplorerNodeBase):
             cells = self.planner.getNextSetOfCellsToBeVisited(cell)
             for nextCell in cells:
                 if (self.planner.hasCellBeenVisitedAlready(nextCell) == False):
-                    if self.isFrontierCell(cell.coords[0],cell.coords[1]):
+                    if self.isFrontierCell(nextCell.coords[0],nextCell.coords[1]) is True:
                         self.planner.markCellAsVisitedAndRecordParent(nextCell, cell)
                         self.planner.pushCellOntoQueue(nextCell)
                         self.numberOfCellsVisited = self.numberOfCellsVisited + 1
@@ -161,29 +172,47 @@ class ExplorerNode(ExplorerNodeBase):
 
     def chooseNewDestination(self):
 
-
-        #print 'blackList:'
-        #for coords in self.blackList:
-        #    print str(coords)
-
         candidateGood = False
         destination = None
-        surroundingUnknown = False
-        maxunknown = 0
         smallestD2 = float('inf')
 
         if self.useWavefront:
-            #Using the imporved frontier algorithm
+            maxunknown = 0
+            unknownCells = 0
+            minDistance = float('inf')
+            heuristic = 2
+            #Using the imrpoved wavefront frontier detection (WF) algorithm
+            # For heuristic = 1, we choose frontier cell that's closest to robot
+            # For heuristic = 2, we choose frontier cell with the largest frontier,
+            # i.e. with the most neighbouring unknown cells
             for frontier in self.frontiers:
-                unknownCells = 0
-                neighbours = self.planner.getNextSetOfCellsToBeVisited(frontier)
-                for nextCell in neighbours:
-                    if (0.45 < self.occupancyGrid.getCell(nextCell.coords[0],nextCell.coords[1]) < 0.55):
-                        unknownCells = unknownCells + 1
-                if unknownCells > maxunknown:
-                    destination = (frontier.coords[0],frontier.coords[1])
-                    candidateGood = True
-                    maxunknown = unknownCells
+                
+                if (frontier.coords[0],frontier.coords[1]) in self.blackList:
+                    print("repeat goal")
+                    continue
+                if heuristic == 2:
+                    #For this option, we choose frontier cell with the largest frontier
+                    # i.e. most neighbouring frontier cells
+                    neighbours = self.planner.getNextSetOfCellsToBeVisited(frontier)
+                    for nextCell in neighbours:
+                        if (0.45 < self.occupancyGrid.getCell(nextCell.coords[0],nextCell.coords[1]) < 0.55):
+                            unknownCells = unknownCells + 1
+                    if unknownCells > maxunknown:
+                        destination = (frontier.coords[0],frontier.coords[1])
+                        candidateGood = True
+                        maxunknown = unknownCells
+                else:
+                    #Choose frontier based on frontier cell that is closet to the robot
+                    currentCoords = self.occupancyGrid.getCellCoordinatesFromWorldCoordinates([self.pose.position.x,self.pose.position.y])
+                    X = currentCoords[0]
+                    Y = currentCoords[1]
+                    distance = sqrt((frontier.coords[0]-X)**2+(frontier.coords[1]-Y)**2)
+                    if distance < minDistance:
+                        destination = (frontier.coords[0],frontier.coords[1])
+                        candidateGood = True
+                        minDistance = distance
+                    
+
         else:
             # Using the default inefficient algorithm
             for x in range(0, self.occupancyGrid.getWidthInCells()):
@@ -204,7 +233,6 @@ class ExplorerNode(ExplorerNodeBase):
                                 smallestD2 = d2
 
             # If we got a good candidate, use it
-
         return candidateGood, destination
 
     def destinationReached(self, goal, goalReached):
