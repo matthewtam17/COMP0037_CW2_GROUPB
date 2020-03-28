@@ -87,6 +87,12 @@ class ControllerBase(object):
         self.abortCurrentGoal = False
         self.plannerDrawer = plannerDrawer
 
+        print("Original path length: " + str(len(path.waypoints)))
+        if len(path.waypoints) > 2:
+            result = path.waypoints.popleft()
+
+        print("New path length: " + str(len(path.waypoints)))
+
         rospy.loginfo('Driving path to goal with ' + str(len(path.waypoints)) + ' waypoint(s)')
         
         # Drive to each waypoint in turn

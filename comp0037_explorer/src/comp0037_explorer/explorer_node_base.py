@@ -18,7 +18,7 @@ class ExplorerNodeBase(object):
     def __init__(self):
         rospy.init_node('explorer')
         # Variables we'ev added to enable use of wavefront frontier detection
-        self.useWavefront = 1
+        self.useWavefront = 0
         self.blackList = []
         self.frontiers = []
         # Get the drive robot service
@@ -212,9 +212,7 @@ class ExplorerNodeBase(object):
 
             while (rospy.is_shutdown() is False) & (self.completed is False):
 
-                # Special case. If this is the first time everything
-                # has started, stdr needs a kicking to generate laser
-                # messages. To do this, we get the robot to
+                # Wait until the occupancy grid has loaded before the explorer begins to do anything
                 if not self.explorer.occupancyGrid:
                     continue
                 
@@ -231,6 +229,13 @@ class ExplorerNodeBase(object):
                     print("Coverage: " + str(self.getCoverage()) + "%")
                     print("Elapsed Simulated Time So Far: " + str((rospy.get_time()-start_time)))
                 else:
+                    #This is where it can't find a frontier cell to go to
+                    #Run update frontiers again - 
+                    #Quick check if there are any frontiers
+                    if len(self.explorer.frontiers) > 0:
+                        print("last check successful")
+                        continue
+
                     #REMEMBER TO ALWAYS CHECKS WHETHER THIS TIME ALWAYS PRINTS THE CORRECT TOTAL ELPASED TIME TO EXPLORE THE MAP
                     print("Robot completed exploring the map, taken: " + str((rospy.get_time()-start_time)))
                     #Now calculate the coverage. We do this by looking at the status of the cells

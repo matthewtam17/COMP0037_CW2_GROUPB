@@ -13,22 +13,18 @@ class ExplorerNode(ExplorerNodeBase):
         
 
     def updateFrontiers(self):
-        searching = True
-        startCoords = self.currentCoords
-        while searching:
-            if self.useWavefront:
-                result = self.outerBFS(startCoords)
-                if result:
-                    self.frontiers = self.innerBFS(result.coords)
-                    if len(self.frontiers) > 5:
-                        searching = False
-                        return True
-                    else:
-                        startCoords = (0,0)
-                        continue
-                else:
-                    searching = False
-                    return False
+        if self.useWavefront:
+            startCoords = self.currentCoords
+            result = self.outerBFS(startCoords)
+            self.frontiers = list()
+            if result:
+                self.frontiers.append(result)
+                self.innerBFS(result.coords)
+                return True
+            else:
+                return False
+        else:
+            return True
 
     def outerBFS(self,startCoords):
         print("startcoords: " + str(startCoords))
@@ -75,7 +71,6 @@ class ExplorerNode(ExplorerNodeBase):
             
             cell = self.planner.popCellFromQueue()
             if self.isFrontierCell(cell.coords[0],cell.coords[1]) is True:
-                print("is frontier cell")
                 return cell
             cells = self.planner.getNextSetOfCellsToBeVisited(cell)
             for nextCell in cells:
@@ -135,9 +130,6 @@ class ExplorerNode(ExplorerNodeBase):
         # Reset the count
         self.numberOfCellsVisited = 0
 
-        frontiers = list()
-        frontiers.append(self.planner.start)
-
         while (self.planner.isQueueEmpty() == False):
 
             # Check if ROS is shutting down; if so, abort. This stops the
@@ -149,7 +141,7 @@ class ExplorerNode(ExplorerNodeBase):
             cells = self.planner.getNextSetOfCellsToBeVisited(cell)
             for nextCell in cells:
                 if (self.planner.hasCellBeenVisitedAlready(nextCell) == False):
-                    if self.isFrontierCell(nextCell.coords[0],nextCell.coords[1]) is True:
+                    if self.isFrontierCell(nextCell.coords[0],nextCell.coords[1]):
                         self.planner.markCellAsVisitedAndRecordParent(nextCell, cell)
                         self.planner.pushCellOntoQueue(nextCell)
                         self.numberOfCellsVisited = self.numberOfCellsVisited + 1
@@ -160,15 +152,15 @@ class ExplorerNode(ExplorerNodeBase):
 
             # Now that we've checked all the actions for this cell,
             # mark it as dead
-            frontiers.append(cell)
+            self.frontiers.append(cell)
 
             # Draw the update if required
             self.planner.drawCurrentState()
-
+        print("Frontier length: " + str(len(self.frontiers)))
         # Do a final draw to make sure that the graphics are shown, even at the end state
         self.planner.drawCurrentState()
 
-        return frontiers
+        return True
 
     def chooseNewDestination(self):
 
@@ -177,8 +169,8 @@ class ExplorerNode(ExplorerNodeBase):
         smallestD2 = float('inf')
 
         if self.useWavefront:
-            maxunknown = 0
-            unknownCells = 0
+            maxunknown = -1
+            
             minDistance = float('inf')
             heuristic = 2
             #Using the imrpoved wavefront frontier detection (WF) algorithm
@@ -186,10 +178,11 @@ class ExplorerNode(ExplorerNodeBase):
             # For heuristic = 2, we choose frontier cell with the largest frontier,
             # i.e. with the most neighbouring unknown cells
             for frontier in self.frontiers:
-                
+                unknownCells = 0
                 if (frontier.coords[0],frontier.coords[1]) in self.blackList:
-                    print("repeat goal")
+                    print("blacklisted cell")
                     continue
+                    #This cell is a blacklist
                 if heuristic == 2:
                     #For this option, we choose frontier cell with the largest frontier
                     # i.e. most neighbouring frontier cells
@@ -197,7 +190,9 @@ class ExplorerNode(ExplorerNodeBase):
                     for nextCell in neighbours:
                         if (0.45 < self.occupancyGrid.getCell(nextCell.coords[0],nextCell.coords[1]) < 0.55):
                             unknownCells = unknownCells + 1
+                    print("UnknownCells: "+str(unknownCells))
                     if unknownCells > maxunknown:
+                        print("test")
                         destination = (frontier.coords[0],frontier.coords[1])
                         candidateGood = True
                         maxunknown = unknownCells
@@ -211,6 +206,8 @@ class ExplorerNode(ExplorerNodeBase):
                         destination = (frontier.coords[0],frontier.coords[1])
                         candidateGood = True
                         minDistance = distance
+                #The point where all frontier cells are unreachable/on blacklist
+                
                     
 
         else:
@@ -232,7 +229,8 @@ class ExplorerNode(ExplorerNodeBase):
                                 destination = candidate
                                 smallestD2 = d2
 
-            # If we got a good candidate, use it
+        # If we got a good candidate, use it
+        self.blackList.append(destination)
         return candidateGood, destination
 
     def destinationReached(self, goal, goalReached):
