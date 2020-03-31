@@ -13,12 +13,13 @@ from nav_msgs.msg import Odometry
 from threading import Lock
 from comp0037_reactive_planner_controller.fifo_planner import FIFOPlanner
 
+
 class ExplorerNodeBase(object):
 
     def __init__(self):
         rospy.init_node('explorer')
         # Variables we'ev added to enable use of wavefront frontier detection
-        self.useWavefront = 0
+        self.useWavefront = 1
         self.blackList = []
         self.frontiers = []
         # Get the drive robot service
@@ -84,6 +85,7 @@ class ExplorerNodeBase(object):
         if self.occupancyGrid is None:
             self.occupancyGrid = OccupancyGrid.fromMapUpdateMessage(msg)
             self.planner = FIFOPlanner("FIFOPlanner",self.occupancyGrid)
+            self.innerplanner = FIFOPlanner("innerFIFOPlanner",self.occupancyGrid)
             self.deltaOccupancyGrid = OccupancyGrid.fromMapUpdateMessage(msg)
 
         # Update the grids
@@ -216,6 +218,8 @@ class ExplorerNodeBase(object):
                 if not self.explorer.occupancyGrid:
                     continue
                 
+                # IMPORTANT: We updateFrontiers just before the robot chooses a new candidate cell
+                # This means that the frontiers is updated to the most recent occupancy grid version.
                 result = self.explorer.updateFrontiers()
                 # Create a new robot waypoint if required
                 newDestinationAvailable, newDestination = self.explorer.chooseNewDestination()
