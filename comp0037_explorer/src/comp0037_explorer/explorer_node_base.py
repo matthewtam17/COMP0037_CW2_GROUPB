@@ -232,6 +232,8 @@ class ExplorerNodeBase(object):
                     self.explorer.destinationReached(newDestination, attempt)
                     print("Coverage: " + str(self.getCoverage()) + "%")
                     print("Elapsed Simulated Time So Far: " + str((rospy.get_time()-start_time)))
+                    #Print coverage and simulated time
+                    #So that we can record in report
                 else:
                     #This is where it can't find a frontier cell to go to
                     #Run update frontiers again - 

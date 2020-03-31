@@ -83,6 +83,9 @@ class ExplorerNode(ExplorerNodeBase):
                 return False
             
             cell = self.planner.popCellFromQueue()
+            #Every time we pop a cell from the queue, we check if its a frontier
+            # cell. If its a frontier cell then we stop the outerBFS and then
+            # run the innerBFS
             if (self.isFrontierCell(cell.coords[0],cell.coords[1]) is True) and (cell not in frontiers):
                 frontiers.append(cell)
                 frontiers = self.innerBFS(cell.coords,frontiers)
@@ -187,6 +190,8 @@ class ExplorerNode(ExplorerNodeBase):
         # Do a final draw to make sure that the graphics are shown, even at the end state
         self.innerplanner.drawCurrentState()
 
+        #Return list of frontiers with additional frontier cells appended
+        #to it by the innerBFS
         return frontiers
 
     def chooseNewDestination(self):

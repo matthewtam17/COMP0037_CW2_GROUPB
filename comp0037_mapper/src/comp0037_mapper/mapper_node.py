@@ -339,17 +339,22 @@ class MapperNode(object):
     
     def calculateEntropy(self):
         unknown = 0
+        #We count the number of unknown cells
         for x in range(0, self.occupancyGrid.getWidthInCells()):
             for y in range(0, self.occupancyGrid.getHeightInCells()):
                 status = self.occupancyGrid.getCell(x,y)
                 #We use a range for checking whether a cell is unexplored to catch rounding issues
                 if not (status < 0.1 or status > 0.9):
                     unknown = unknown + 1
+        #Return entropy value using equation from report
         return unknown*np.log(2)
 
         
     def run(self):
         i = 0
+        #Every 5 seconds of simulation time we write the entropy
+        #and elapsed simulation time into a text file
+        #The output is plotted in MATLAB
         start_time = rospy.get_time()
         working_directory = os.getcwd()
         file_directory = '/home/ros_user/output_file.txt'
@@ -359,6 +364,7 @@ class MapperNode(object):
         while not rospy.is_shutdown():
             self.updateVisualisation()
             rospy.sleep(0.1)
+            #rospy.get_time() gives simulated time in seconds
             if i == 49:
                 entropy = self.calculateEntropy()
                 elapsedTime = rospy.get_time() - start_time

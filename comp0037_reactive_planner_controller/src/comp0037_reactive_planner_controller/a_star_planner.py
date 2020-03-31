@@ -5,6 +5,9 @@ import math
 import numpy as np
 from math import sqrt
 
+#This has been imported from CW1, and we only use the Euclidean distance 
+#Heuristic for this planner in CW2
+
 # This class implements the A* Planning
 # algorithm. It works by using a priority queue based on the cost-to-go for each cell.
 # the element with the highest priority is always popped first.
